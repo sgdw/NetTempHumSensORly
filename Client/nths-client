@@ -1,0 +1,181 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+from time import sleep, strftime
+import urllib2
+import serial
+
+SENSOR_URL = "http://sensor1/c"
+
+class SensorClient(object):
+
+    def __init__(self, uri):
+        self.verbose = False
+        self.sensor_uri = uri
+        self.serial_config = SerialConfiguration()
+
+    def get_sensor(self):
+        if self.sensor_uri.startswith("http:") or self.sensor_uri.startswith("https:"):
+            return self.get_web_sensor();
+        elif self.sensor_uri.startswith("ser:"):
+            return self.get_serial_sensor();
+
+    def get_web_sensor(self):
+        resp = urllib2.urlopen(self.sensor_uri)
+        if resp.getcode() == 200:
+            data = resp.read()
+            return data
+
+        return None
+
+    def get_serial_sensor(self):
+        portname = self.get_portname_from_uri(self.sensor_uri)
+        if portname is not None:
+            if self.verbose: print("Opening '{0}'".format(portname))
+            sercon = self.get_serial_connection(portname);
+            # sercon = serial.Serial(port = "/dev/ttyUSB2", baudrate = 9600, timeout = 2)
+
+            line = None
+            keep_reading = True
+            count_tries = 0
+
+            while keep_reading:
+                if self.verbose: print("> Request sensor data")
+
+                sercon.write("r")
+                line = sercon.readline()
+
+                keep_reading = line is None or len(line) == 0
+
+                if not keep_reading:
+                    if self.verbose: print "< Received '{0}'".format(line)
+
+                count_tries += 1
+
+            sercon.close();
+            return line
+
+        raise "Portname is none"
+
+    def get_portname_from_uri(self, uri):
+        parts = self.sensor_uri.split(':')
+        if len(parts) > 1:
+            return parts[1]
+        else:
+            return None
+
+    def get_serial_connection(self, port_name, serial_config=None):
+
+        if serial_config is None:
+            serial_config = self.serial_config
+
+        if port_name is None:
+            port_name = self.port_name
+
+        return serial.Serial(
+                        port     = port_name,
+                        baudrate = serial_config.baudrate,
+                        bytesize = serial_config.bytesize,
+                        parity   = serial_config.parity,
+                        stopbits = serial_config.stopbits,
+                        timeout  = serial_config.timeout,
+                        xonxoff  = serial_config.xonxoff,
+                        rtscts   = serial_config.rtscts,
+                        writeTimeout = serial_config.writeTimeout,
+                        dsrdtr   = serial_config.dsrdtr,
+                        interCharTimeout = serial_config.interCharTimeout)
+
+class SerialConfiguration:
+
+    def __init__(self):
+        self.baudrate = 9600
+        self.bytesize = serial.EIGHTBITS
+        self.parity   = serial.PARITY_NONE
+        self.stopbits = serial.STOPBITS_ONE
+        self.timeout  = 2
+        self.xonxoff  = False
+        self.rtscts   = False
+        self.writeTimeout = None
+        self.dsrdtr   = False
+        self.interCharTimeout = None
+
+class SensorLogFile(object):
+
+    DEFAULT_MAX_ENTRIES = 144 * 4 
+    DEFAULT_TIMESTAMP = "%Y-%m-%dT%H:%M:%S"
+
+    def __init__(self, filename, max_entries=None):
+        if max_entries is None:
+            self.max_entries = self.DEFAULT_MAX_ENTRIES
+        else:
+            self.max_entries = max_entries
+
+        self.filename = filename
+        self.timestamp_format = self.DEFAULT_TIMESTAMP
+
+    def append(self, data):
+        with open(self.filename, "a+") as f:
+            lines = f.readlines()
+
+            # print "{0} rows (max {1})".format(len(lines), self.max_entries)
+
+            if len(lines) >= self.max_entries:
+                f.close()
+                with open(self.filename, "w") as fnew:
+                    fnew.writelines(lines[-1 * int(self.max_entries/2):])
+                    self.append_data_to(data, fnew)
+                    fnew.close();
+                    print "CROP"
+            else:
+                self.append_data_to(data, f)
+                f.close()
+
+    def append_data_to(self, data, filehandle):
+        ts = strftime(self.timestamp_format)
+        filehandle.write(ts)
+        filehandle.write(",")
+        filehandle.write(data)
+        if not data.endswith("\n"):
+            filehandle.write("\n")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Read sensor data')
+
+    parser.add_argument('-m', '--max-entries', type=int, nargs='?', default=None)
+    parser.add_argument('pars', type=str, nargs='+')
+
+    args = parser.parse_args()
+
+    uri = None
+    if len(args.pars) > 0:
+        uri = args.pars[0]
+
+    log_file = None
+    if len(args.pars) > 1:
+        log_file = args.pars[1]
+
+    if uri == "test":
+        what = args.pars[2]
+
+        if what == "append":
+            slog = SensorLogFile("test_nths.log", 20)
+            for i in range(0, 40):
+                slog.append("{0}, haha, huhu\n".format(i))
+
+    else:
+
+        if log_file is not None:
+            if not log_file.endswith(".log"):
+                print "Will only append data to a file ending with '.log'"
+                exit()
+
+        client = SensorClient(uri)
+        data = client.get_sensor()
+
+        if log_file is not None:
+            log = SensorLogFile(filename=log_file, max_entries=args.max_entries)
+            log.append(data)
+        else:
+            print(data)

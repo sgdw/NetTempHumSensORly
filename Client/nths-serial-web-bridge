@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+keep_running=1
+
+trap exiting SIGINT
+exiting() { echo "Ctrl-C trapped, will stop ..." ; keep_running=0;}
+
+dest_path=/var/run/sensors
+dest_file=sensor-data.log
+
+echo Parameter may be sensor, server or init
+
+if [ "$1" == "sensor" ]; then
+    while [ $keep_running -eq 1 ];
+    do
+        data=`nths-client ser:/dev/ttyUSB0`
+        echo Read $data
+        echo $data > $dest_path/$dest_file
+        wget localhost:31455 --quiet
+        wget localhost:31455 --quiet
+        sleep 60
+    done
+fi
+
+if [ "$1" == "server" ]; then
+    while [ $keep_running -eq 1 ];
+    do
+        data=`cat $dest_path/$dest_file`
+        echo -e "HTTP/1.1 200 OK\n\n$data" | nc -l -p 31455
+        echo Sent data ...
+    done
+fi
+
+if [ "$1" == "init" ]; then
+    sudo mkdir $dest_path
+    sudo chown :pi $dest_path
+    sudo chmod g+w $dest_path
+fi

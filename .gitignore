@@ -1,0 +1,4 @@
+Client/*.log
+Web/*.log
+Web/nvd3/src/*
+Web/examples/*

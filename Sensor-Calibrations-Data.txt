@@ -1,0 +1,4 @@
+
+Senos        Soll    Ist    Diff
+WZ (S1)      22,8    24,6   +1,8
+AZ (S2)      23,2    24,1   +0,9
