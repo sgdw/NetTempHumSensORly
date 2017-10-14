@@ -46,9 +46,9 @@
 
 // Application ---------------------------------------------------------------
 
-#include <dht.h>;
+#include <dht.h> // see http://playground.arduino.cc//Main/DHTLib
 #ifdef USE_NETWORK
-    #include <UIPEthernet.h>
+    #include <UIPEthernet.h> // see https://github.com/ntruchsess/arduino_uip
 #endif
 
 // Sensor

@@ -10,6 +10,15 @@ Hardware
 - Processor: ATmega328
 - Ethernet Shield (HanRun HR911105A 15/27)
 
+External Libraries
+------------------
+
+UIPEthernet:
+https://github.com/ntruchsess/arduino_uip
+
+DHTLib:
+http://playground.arduino.cc//Main/DHTLib
+
 Serial protocoll
 ----------------
     Requesting sensor data:
