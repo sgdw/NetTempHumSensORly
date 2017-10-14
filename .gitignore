@@ -1,4 +1,5 @@
 Client/*.log
+Client/.idea
 Web/*.log
 Web/nvd3/src/*
 Web/examples/*
